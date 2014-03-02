@@ -1,6 +1,10 @@
 
 mod lex;
 
+fn getTokens(l:&lex::LexerState) -> ~[~lex::Token] {
+    l.lexemes.iter().map(|lexeme| lexeme.tok.clone()).to_owned_vec()
+}
+
 #[test]
 fn empty() {
     let src = ~"";
@@ -13,23 +17,23 @@ fn lex_keyword() {
     let src = ~"module";
 
     let ls = ::lex::lex(src);
-    assert_eq!(1, ls.lexemes.len());
-    assert_eq!(lex::Keyword(~lex::Module), *ls.lexemes[0].tok);
+    assert_eq!(getTokens(ls), ~[~lex::Keyword(~lex::Module)]);
 }
 
 #[test]
 fn lex_two_keywords() {
     let ls = ::lex::lex(~"module return");
-    assert_eq!(2, ls.lexemes.len());
-    assert_eq!(lex::Keyword(~lex::Module), *ls.lexemes[0].tok);
-    assert_eq!(lex::Keyword(~lex::Return), *ls.lexemes[1].tok);
+    assert_eq!(getTokens(ls), ~[~lex::Keyword(~lex::Module), ~lex::Keyword(~lex::Return)]);
 }
 
 #[test]
 fn operators() {
     let ls = lex::lex(~">>= ||!");
-    assert_eq!(3, ls.lexemes.len());
-    assert_eq!(lex::Operator(~lex::ShiftRightEquals), *ls.lexemes[0].tok);
-    assert_eq!(lex::Operator(~lex::DoublePipe), *ls.lexemes[1].tok);
-    assert_eq!(lex::Operator(~lex::Bang), *ls.lexemes[2].tok);
+    assert_eq!(
+        getTokens(ls),
+        ~[ ~lex::Operator(~lex::ShiftRightEquals)
+         , ~lex::Operator(~lex::DoublePipe)
+         , ~lex::Operator(~lex::Bang)
+         ]
+    );
 }

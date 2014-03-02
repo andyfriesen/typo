@@ -1,7 +1,7 @@
 
 use std::str::CharRange;
 
-#[deriving(Eq, ToStr)]
+#[deriving(Eq, ToStr, Clone)]
 pub enum Keyword {
     Any,
     Boolean,
@@ -92,7 +92,7 @@ static keywords : &'static[(&'static str, Keyword)] = &[
     ("with",         With),
 ];
 
-#[deriving(Eq, ToStr)]
+#[deriving(Eq, ToStr, Clone)]
 pub enum Operator {
     Ampersand,
     AmpersandEquals,
@@ -193,7 +193,7 @@ static operators : &'static[(&'static str, Operator)] = &[
     ("*",     Star),
 ];
 
-#[deriving(Eq, ToStr)]
+#[deriving(Eq, ToStr, Clone)]
 pub enum Token {
     Keyword(~Keyword),
     Operator(~Operator),
