@@ -9,8 +9,7 @@ fn main() {
     //let src = from_utf8(bytes).into_owned();
     let src = ~"module";
 
-    let mut ls = lex::LexerState { src: src, lexemes: ~[], pos: 0, lineNo: 0 };
-    ls.lex();
+    let mut ls = lex::lex(src);
 
     for l in ls.lexemes.iter() {
         println!("{:s}", l.to_str());

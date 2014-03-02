@@ -1,7 +1,7 @@
 
 use std::str::CharRange;
 
-#[deriving(ToStr)]
+#[deriving(Eq, ToStr)]
 pub enum Keyword {
     Any,
     Boolean,
@@ -92,8 +92,8 @@ static keywords : &'static[(&'static str, Keyword)] = &[
     ("with",         With),
 ];
 
-#[deriving(ToStr)]
-enum Operator {
+#[deriving(Eq, ToStr)]
+pub enum Operator {
     Ampersand,
     AmpersandEquals,
     Bang,
@@ -193,15 +193,15 @@ static operators : &'static[(&'static str, Operator)] = &[
     ("*",     Star),
 ];
 
-#[deriving(ToStr)]
-enum Token {
+#[deriving(Eq, ToStr)]
+pub enum Token {
     Keyword(~Keyword),
     Operator(~Operator),
     Identifier(~str)
 }
 
 #[deriving(ToStr)]
-struct Lexeme {
+pub struct Lexeme {
     tok: ~Token,
     lineNumber: uint
 }
@@ -259,6 +259,7 @@ impl LexerState {
     }
 
     fn append(&mut self, t:~Token) {
+        println!("Append {}", t.to_str());
         self.lexemes.push(Lexeme { tok: t, lineNumber: self.lineNo });
     }
 
@@ -267,9 +268,12 @@ impl LexerState {
         fail!();
     }
 
-    pub fn lex(&mut self) {
-        while !self.eof() {
+    fn lex(&mut self) {
+        loop {
             self.eatWhitespace();
+            if self.eof() {
+                break;
+            }
 
             if self.eatLineComment() { continue; }
             if self.lexWord() { continue; }
@@ -324,11 +328,15 @@ impl LexerState {
         }
 
         loop {
-            let CharRange {next, ..} = self.src.char_range_at(pos);
+            let CharRange {ch, next} = self.src.char_range_at(pos);
+
+            if !isLetter(ch) && !isNumber(ch) {
+                break;
+            }
+
             pos = next;
 
-            let here = self.here();
-            if !isLetter(here) && !isNumber(here) {
+            if pos >= self.src.len() {
                 break;
             }
         }
@@ -365,4 +373,10 @@ fn toKeyword(s:&str) -> Option<Keyword> {
         }
     }
     return None;
+}
+
+pub fn lex(src:~str) -> ~LexerState {
+    let mut ls = ~LexerState { src:src, lexemes: ~[], pos: 0, lineNo: 1 };
+    ls.lex();
+    return ls;
 }
