@@ -28,12 +28,23 @@ fn lex_two_keywords() {
 
 #[test]
 fn operators() {
-    let ls = lex::lex(~">>= ||!");
+    let ls = lex::lex(~">>=||!");
     assert_eq!(
         getTokens(ls),
         ~[ ~lex::Operator(~lex::ShiftRightEquals)
          , ~lex::Operator(~lex::DoublePipe)
          , ~lex::Operator(~lex::Bang)
+         ]
+    );
+}
+
+#[test]
+fn identifiers() {
+    let ls = lex::lex(~"module foo");
+    assert_eq!(
+        getTokens(ls),
+        ~[ ~lex::Keyword(~lex::Module)
+         , ~lex::Identifier(~"foo")
          ]
     );
 }
