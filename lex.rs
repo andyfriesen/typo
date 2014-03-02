@@ -249,7 +249,7 @@ impl LexerState {
             return false;
         }
 
-        if op == self.src.slice(self.pos, op.len()) {
+        if op == self.src.slice(self.pos, self.pos + op.len()) {
             self.append(~Operator(~tok));
             self.pos += op.len();
             return true;
@@ -259,7 +259,6 @@ impl LexerState {
     }
 
     fn append(&mut self, t:~Token) {
-        println!("Append {}", t.to_str());
         self.lexemes.push(Lexeme { tok: t, lineNumber: self.lineNo });
     }
 
@@ -284,15 +283,21 @@ impl LexerState {
     }
 
     fn eatLineComment(&mut self) -> bool {
-        if "//" == self.src.slice(self.pos, self.pos + 2) {
-            self.pos += 2;
-            while self.here() != '\n' {
-                self.next();
-            }
+        match self.peekStrLen(2) {
+            Some(s) => {
+                if ("//" == s) {
+                self.pos += 2;
+                    while self.here() != '\n' {
+                        self.next();
+                    }
 
-            return true;
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+            _ => return false
         }
-        return false;
     }
 
     fn lexOperator(&mut self) -> bool {
@@ -318,6 +323,14 @@ impl LexerState {
                 self.pos = newpos;
                 return true;
             }
+        }
+    }
+
+    fn peekStrLen(&self, len:uint) -> Option<~str> {
+        if self.pos + len >= self.src.len() {
+            return None;
+        } else {
+            return Some(self.src.slice(self.pos, self.pos + len).into_owned());
         }
     }
 
