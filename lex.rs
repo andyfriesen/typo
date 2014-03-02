@@ -195,8 +195,8 @@ static operators : &'static[(&'static str, Operator)] = &[
 
 #[deriving(Eq, ToStr, Clone)]
 pub enum Token {
-    Keyword(~Keyword),
-    Operator(~Operator),
+    Keyword(Keyword),
+    Operator(Operator),
     Identifier(~str)
 }
 
@@ -250,7 +250,7 @@ impl LexerState {
         }
 
         if op == self.src.slice(self.pos, self.pos + op.len()) {
-            self.append(~Operator(~tok));
+            self.append(~Operator(tok));
             self.pos += op.len();
             return true;
         }
@@ -317,7 +317,7 @@ impl LexerState {
 
                 match toKeyword(s) {
                     None => self.append(~Identifier(s.to_owned())),
-                    Some(kw) => self.append(~Keyword(~kw))
+                    Some(kw) => self.append(~Keyword(kw))
                 }
 
                 self.pos = newpos;
