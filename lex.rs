@@ -197,6 +197,7 @@ static operators : &'static[(&'static str, Operator)] = &[
 pub enum Token {
     Keyword(Keyword),
     Operator(Operator),
+    StringLiteral(~str),
     Identifier(~str)
 }
 
@@ -277,6 +278,7 @@ impl LexerState {
             if self.eatLineComment() { continue; }
             if self.lexWord() { continue; }
             if self.lexOperator() { continue; }
+            if self.lexStringLiteral() { continue; }
 
             self.syntaxError();
         }
@@ -322,6 +324,30 @@ impl LexerState {
 
                 self.pos = newpos;
                 return true;
+            }
+        }
+    }
+
+    fn lexStringLiteral(&mut self) -> bool {
+        if '\"' != self.here() {
+            return false;
+        }
+        self.next();
+
+        let startpos = self.pos;
+
+        loop {
+            if self.eof() {
+                self.syntaxError();
+            }
+
+            if '\"' == self.here() {
+                let s = self.src.slice(startpos, self.pos).to_owned();
+                self.next();
+                self.append(~StringLiteral(s));
+                return true;
+            } else {
+                self.next();
             }
         }
     }

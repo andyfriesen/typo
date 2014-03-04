@@ -48,3 +48,23 @@ fn identifiers() {
          ]
     );
 }
+
+#[test]
+fn stringliteral() {
+    let ls = lex::lex(~"\"abc\"");
+    assert_eq!(
+        getTokens(ls),
+        ~[ ~lex::StringLiteral(~"abc") ]
+    );
+}
+
+#[test]
+fn twoStringLiterals() {
+    let ls = lex::lex(~"\"abc\"\"def\"");
+    assert_eq!(
+        getTokens(ls),
+        ~[ ~lex::StringLiteral(~"abc")
+         , ~lex::StringLiteral(~"def")
+         ]
+    );
+}
