@@ -68,3 +68,21 @@ fn twoStringLiterals() {
          ]
     );
 }
+
+#[test]
+fn numbers() {
+    let ls = lex::lex(~"12345");
+    assert_eq!(
+        getTokens(ls),
+        ~[ ~lex::NumericLiteral(~"12345") ]
+    );
+}
+
+#[test]
+fn decimal_float() {
+    let ls = lex::lex(~"3.14159");
+    assert_eq!(
+        getTokens(ls),
+        ~[ ~lex::NumericLiteral(~"3.14159") ]
+    );
+}

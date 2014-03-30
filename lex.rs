@@ -128,6 +128,7 @@ pub enum Operator {
     PlusEquals,
     PlusPlus,
     QuestionMark,
+    Semicolon,
     ShiftLeft,
     ShiftLeftEquals,
     ShiftRight,
@@ -173,7 +174,7 @@ static operators : &'static[(&'static str, Operator)] = &[
     ("!",     Bang),
     ("^",     Caret),
     ("}",     CloseBrace),
-    (")",     CloseBracket),
+    ("]",     CloseBracket),
     (")",     CloseParen),
     (":",     Colon),
     (",",     Comma),
@@ -183,12 +184,13 @@ static operators : &'static[(&'static str, Operator)] = &[
     ("<",     Less),
     ("-",     Minus),
     ("{",     OpenBrace),
-    ("(",     OpenBracket),
+    ("[",     OpenBracket),
     ("(",     OpenParen),
     ("%",     Percent),
     ("|",     Pipe),
     ("+",     Plus),
     ("?",     QuestionMark),
+    (";",     Semicolon),
     ("/",     Slash),
     ("*",     Star),
 ];
@@ -198,6 +200,7 @@ pub enum Token {
     Keyword(Keyword),
     Operator(Operator),
     StringLiteral(~str),
+    NumericLiteral(~str),
     Identifier(~str)
 }
 
@@ -260,6 +263,7 @@ impl LexerState {
     }
 
     fn append(&mut self, t:~Token) {
+        println!("Append {:s}", t.to_str());
         self.lexemes.push(Lexeme { tok: t, lineNumber: self.lineNo });
     }
 
@@ -279,6 +283,7 @@ impl LexerState {
             if self.lexWord() { continue; }
             if self.lexOperator() { continue; }
             if self.lexStringLiteral() { continue; }
+            if self.lexNumericLiteral() { continue; }
 
             self.syntaxError();
         }
@@ -350,6 +355,38 @@ impl LexerState {
                 self.next();
             }
         }
+    }
+
+    fn lexNumericLiteral(&mut self) -> bool {
+        if !isNumber(self.here()) {
+            return false;
+        }
+
+        let startpos = self.pos;
+        let mut seenDot = false;
+
+        loop {
+            if self.eof() {
+                break;
+            }
+
+            let here = self.here();
+            if !seenDot && '.' == here {
+                seenDot = true;
+                self.next();
+                continue;
+            } else if isNumber(here) {
+                self.next();
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        let s = self.src.slice(startpos, self.pos).into_owned();
+        self.append(~NumericLiteral(s));
+
+        return true;
     }
 
     fn peekStrLen(&self, len:uint) -> Option<~str> {
