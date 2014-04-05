@@ -2,16 +2,17 @@
 
 module Lex where
 
-import Debug.Trace
-
 import Control.Applicative ((<|>))
 import Data.Functor ((<$>))
-import Data.Char (isSpace)
 import Data.Monoid ((<>))
-import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Data.Attoparsec.Combinator as Atto
-import qualified Data.Attoparsec.Text as Atto
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as Text
+-- import qualified Data.Attoparsec.Combinator as Atto
+-- import qualified Data.Attoparsec.Text as Atto
+import Control.Monad (void)
+
+import qualified Text.Parsec as Parsec
+import qualified Text.Parsec.Text.Lazy as Parsec
 
 data Keyword
     = KAny
@@ -217,77 +218,85 @@ data Token
 
 data Lexeme = Lexeme
     { lToken :: Token
-    , lLine :: Integer
+    , lLine :: Int
+    , lColumn :: Int
     } deriving (Show, Eq)
 
-whitespaceP :: Atto.Parser ()
-whitespaceP = Atto.skip isSpace
+whitespaceP :: Parsec.Parser ()
+whitespaceP = void Parsec.space
 
-lineCommentP :: Atto.Parser ()
-lineCommentP = do
-    _ <- Atto.string "//"
-    _ <- Atto.manyTill Atto.anyChar Atto.endOfLine
+lineCommentP :: Parsec.Parser ()
+lineCommentP = Parsec.try $ do
+    _ <- Parsec.string "//"
+    _ <- Parsec.manyTill Parsec.anyChar Parsec.newline
     return ()
 
-blockCommentP :: Atto.Parser ()
-blockCommentP = do
-    _ <- Atto.string "/*"
-    _ <- Atto.manyTill Atto.anyChar (Atto.string "*/")
+blockCommentP :: Parsec.Parser ()
+blockCommentP = Parsec.try $ do
+    _ <- Parsec.string "/*"
+    _ <- Parsec.manyTill Parsec.anyChar (Parsec.string "*/")
     return ()
 
-spaceP :: Atto.Parser ()
-spaceP = Atto.skipMany (whitespaceP <|> lineCommentP <|> blockCommentP)
+spaceP :: Parsec.Parser ()
+spaceP = Parsec.skipMany (whitespaceP <|> lineCommentP <|> blockCommentP)
 
-operatorP :: Atto.Parser Operator
-operatorP = Atto.choice (map mkOperatorParser operators)
+operatorP :: Parsec.Parser Operator
+operatorP = Parsec.choice (map mkOperatorParser operators)
   where
     mkOperatorParser (str, op) = do
-        _ <- Atto.string str
+        _ <- Parsec.try $ Parsec.string $ Text.unpack str
         return op
 
-wordP :: Atto.Parser (Either Keyword Text)
+wordP :: Parsec.Parser (Either Keyword Text)
 wordP = do
-    first <- Text.singleton <$> Atto.satisfy (Atto.inClass "a-zA-Z")
-    rest <- Atto.takeWhile (Atto.inClass "a-zA-Z0-9_")
+    first <- Text.singleton <$> (Parsec.char '_' <|> Parsec.letter)
+    rest <- Text.pack <$> Parsec.many (Parsec.char '_' <|> Parsec.alphaNum)
     let word = first <> rest
     return $ case lookup word keywords of
         Just kw -> Left kw
         Nothing -> Right word
 
-_traceM :: Monad m => String -> m ()
-_traceM s = trace s (return ())
-
-stringLiteralP :: Atto.Parser Text
+stringLiteralP :: Parsec.Parser Text
 stringLiteralP = do
-    _ <- Atto.char '"'
-    let stringCharacterP = Atto.satisfy (Atto.notInClass "\\\"")
-        escapeSequenceP = Atto.char '\\' >> Atto.anyChar
-    chars <- Atto.many' (escapeSequenceP <|> stringCharacterP)
-    _ <- Atto.char '"'
+    _ <- Parsec.char '"'
+    let stringCharacterP = Parsec.noneOf "\\\""
+        escapeSequenceP = Parsec.char '\\' >> Parsec.anyChar
+    chars <- Parsec.many (escapeSequenceP <|> stringCharacterP)
+    _ <- Parsec.char '"'
     return $ Text.pack chars
 
-numericLiteralP :: Atto.Parser Text
+numericLiteralP :: Parsec.Parser Text
 numericLiteralP = do
     first <- digitsP
-    second <- Atto.option "" $ do
-        _ <- Atto.char '.'
+    second <- Parsec.option "" $ do
+        _ <- Parsec.char '.'
         more <- digitsP
         return $ Text.singleton '.' <> more
 
     return $ first <> second
   where
-    digitsP = Atto.takeWhile1 (Atto.inClass "0-9")
+    digitsP = Text.pack <$> Parsec.many1 Parsec.digit
 
-documentElementP :: Atto.Parser Token
-documentElementP = Atto.choice
-    [ (either TKeyword TIdentifier) <$> wordP
-    , TOperator <$> operatorP
-    , TStringLiteral <$> stringLiteralP
-    , TNumericLiteral <$> numericLiteralP
-    ]
+-- TODO: Octal, hex, exponential notation
 
-documentP :: Atto.Parser [Token]
-documentP = documentElementP `Atto.sepBy` spaceP
+documentElementP :: Parsec.Parser Lexeme
+documentElementP = do
+    pos <- Parsec.getPosition
+    token <- Parsec.choice
+        [ (either TKeyword TIdentifier) <$> wordP
+        , TOperator <$> operatorP
+        , TStringLiteral <$> stringLiteralP
+        , TNumericLiteral <$> numericLiteralP
+        ]
 
-lex :: Text -> Either String [Token]
-lex = Atto.parseOnly documentP
+    return $ Lexeme
+        { lToken = token
+        , lLine = Parsec.sourceLine pos
+        , lColumn = Parsec.sourceColumn pos
+        }
+
+documentP :: Parsec.Parser [Lexeme]
+documentP = spaceP >> documentElementP `Parsec.sepEndBy` spaceP
+
+lex :: Parsec.SourceName -> Text -> Either Parsec.ParseError [Lexeme]
+lex = Parsec.parse documentP

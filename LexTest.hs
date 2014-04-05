@@ -6,6 +6,8 @@ import Prelude hiding (lex)
 
 import Lex
 
+import Data.Text.Lazy (Text)
+
 import Test.Tasty
 import Test.Tasty.HUnit (testCase)
 -- import Test.Tasty.QuickCheck (testProperty)
@@ -14,73 +16,103 @@ import Test.HUnit (Assertion, assertEqual)
 -- import Test.QuickCheck
 -- import Test.QuickCheck.Instances ()
 
+assumeRight :: Show a => Either a b -> b
+assumeRight (Left l) = error $ "assumeRight got a left: " ++ (show l)
+assumeRight (Right r) = r
+
+assertParse :: String -> [Token] -> Text -> Assertion
+assertParse name expected source =
+    assertEqual
+        name
+        expected
+        (map lToken $ assumeRight $ lex "foo.ts" source)
+
 case_empty :: Assertion
 case_empty =
-    assertEqual "No tokens" (Right []) (lex "")
+    assertParse "No tokens" [] ""
 
 case_1_keyword :: Assertion
 case_1_keyword =
-    assertEqual "One keyword" (Right [TKeyword KModule]) (lex "module")
+    assertParse "One keyword"  [TKeyword KModule] "module"
 
 case_2_keywords :: Assertion
 case_2_keywords =
-    assertEqual "Two keywords" (Right [TKeyword KModule, TKeyword KExport]) (lex "module export")
+    assertParse
+        "Two keywords"
+        [TKeyword KModule, TKeyword KExport]
+        "module export"
 
 case_operators :: Assertion
 case_operators =
-    assertEqual
+    assertParse
         "Operators"
-        (Right
-            [ TOperator OShiftRightEquals
-            , TOperator ODoublePipe
-            , TOperator OBang
-            ])
-        (lex ">>=||!")
+        [ TOperator OShiftRightEquals
+        , TOperator ODoublePipe
+        , TOperator OBang
+        ]
+        ">>=||!"
 
 case_identifiers :: Assertion
 case_identifiers =
-    assertEqual
+    assertParse
         "Identifiers"
-        (Right
-            [ TKeyword KModule
-            , TIdentifier "foo"
-            ])
-        (lex "module foo")
+        [ TKeyword KModule
+        , TIdentifier "foo"
+        ]
+        "module foo"
 
 case_string_literal :: Assertion
 case_string_literal =
-    assertEqual
+    assertParse
         "String Literal"
-        (Right
-            [ TStringLiteral "abc"
-            ])
-        (lex "\"abc\"")
+        [ TStringLiteral "abc" ]
+        "\"abc\""
 
 case_two_string_literals :: Assertion
 case_two_string_literals =
-    assertEqual
+    assertParse
         "Two strings"
-        (Right
-            [ TStringLiteral "abc"
-            , TStringLiteral "def"
-            ])
-        (lex "\"abc\"\"def\"")
+        [ TStringLiteral "abc"
+        , TStringLiteral "def"
+        ]
+        "\"abc\"\"def\""
 
 case_number :: Assertion
 case_number =
-    assertEqual
+    assertParse
         "Number"
-        (Right
-            [ TNumericLiteral "12345" ])
-        (lex "12345")
+        [ TNumericLiteral "12345" ]
+        "12345"
 
 case_decimal :: Assertion
 case_decimal =
-    assertEqual
+    assertParse
         "Decimal"
-        (Right
-            [ TNumericLiteral "3.14159" ])
-        (lex "3.14159")
+        [ TNumericLiteral "3.14159" ]
+        "3.14159"
+
+case_whitespace =
+    assertParse
+        "Whitespace"
+        [ TKeyword KModule ]
+        "\n\tmodule\t  \n"
+
+case_block_comments :: Assertion
+case_block_comments =
+    assertParse
+        "Block comments"
+        [ TKeyword KModule
+        , TIdentifier "Foo"
+        ]
+        "module /*la la\n la */ \n\tFoo"
+
+case_line_comments =
+    assertParse
+        "Line comments"
+        [ TKeyword KModule
+        , TIdentifier "Bar"
+        ]
+        "module // this is a keyword\nBar"
 
 tests :: TestTree
 tests = $(testGroupGenerator)
